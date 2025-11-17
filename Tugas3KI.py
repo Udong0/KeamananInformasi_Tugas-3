@@ -244,19 +244,16 @@ def chat_loop(connection, key, iv):
         connection.close()
         print("[Done]")
 
-# --- Main Function ---
 
 def start_server(port):
     HOST_IP = get_local_ip()
     
-    # --- BARU: Buat Kunci RSA ---
     print("Generating RSA key pair (2048 bits)...")
     rsa_key = RSA.generate(2048)
     private_key = rsa_key
     public_key = rsa_key.publickey()
     print("RSA key pair generated.")
-    # --------------------------
-
+    
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         s.bind((HOST_IP, port))
@@ -270,29 +267,24 @@ def start_server(port):
         conn, addr = s.accept()
         print(f"\n[Connected to {addr}]")
 
-        # --- BARU: Kirim Kunci Publik & Terima Secret Key ---
         print("Sending Public Key to Client...")
         conn.sendall(public_key.export_key())
         
         print("Waiting for Encrypted Secret Key (DES Key + IV) from Client...")
-        # Ukuran buffer harus cukup untuk ciphertext RSA (2048 bit key = 256 bytes)
         encrypted_secret = conn.recv(256) 
         
         print(f"Received Encrypted Package (Hex): {encrypted_secret.hex()}")
 
-        # Dekripsi secret key menggunakan kunci privat
         cipher_rsa = PKCS1_OAEP.new(private_key)
         secret = cipher_rsa.decrypt(encrypted_secret)
         
-        # Pisahkan key dan IV (8 bytes pertama adalah key, 8 bytes berikutnya IV)
         key_bytes = secret[:8]
         iv_bytes = secret[8:]
         
         print("Secret Key decrypted and received successfully.")
         print(f"   DES Key: {key_bytes.decode('latin-1')}")
         print(f"   DES IV : {iv_bytes.decode('latin-1')}")
-        # --------------------------------------------------
-
+        
         print("\nStarting Encrypted Chat...")
         print("Type 'exit' to leave the chat.\n")
         
@@ -322,31 +314,26 @@ def start_client():
         
         print("\n[Connected to Host]")
 
-        # --- BARU: Terima Kunci Publik & Buat/Kirim Secret Key ---
         print("Receiving Server's Public Key...")
         server_public_key_bytes = s.recv(2048) # Buffer untuk public key
         server_public_key = RSA.import_key(server_public_key_bytes)
         print("Server's Public Key received.")
 
-        # Buat DES key dan IV secara acak
         print("Generating random DES Key (8 bytes) and IV (8 bytes)...")
         key_bytes = get_random_bytes(8)
         iv_bytes = get_random_bytes(8)
         
-        # Gabungkan key dan IV untuk dikirim dalam satu paket
         secret = key_bytes + iv_bytes
         
         print(f"   Generated DES Key: {key_bytes.decode('latin-1')}")
         print(f"   Generated DES IV : {iv_bytes.decode('latin-1')}")
 
-        # Enkripsi secret key (Key + IV) menggunakan kunci publik server
         cipher_rsa = PKCS1_OAEP.new(server_public_key)
         encrypted_secret = cipher_rsa.encrypt(secret)
         
         print(f"Sending Encrypted Package (Hex): {encrypted_secret.hex()}")
         s.sendall(encrypted_secret)
         print("Encrypted Secret Key sent.")
-        # ---------------------------------------------------------
         
         print("\nStarting Encrypted Chat...")
         print("Type 'exit' to leave the chat.\n")
@@ -363,7 +350,7 @@ def start_client():
         s.close()
 
 
-# --- Main Function (DIMODIFIKASI) ---
+# --- Main Function ---
 
 def main():
     clear_screen()
@@ -377,7 +364,6 @@ def main():
     while choice not in ('1', '2'):
         choice = input("Option (1/2): ")
     
-    # --- Input Key/IV DIHAPUS ---
 
     if choice == '1':
         port = 0
@@ -392,11 +378,9 @@ def main():
             except ValueError:
                 print("Error: Invalid PORT number.")
         
-        # Panggil start_server tanpa key/iv
         start_server(port)
         
     elif choice == '2':
-        # Panggil start_client tanpa key/iv
         start_client()
 
 if __name__ == "__main__":
