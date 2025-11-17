@@ -5,6 +5,8 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Random import get_random_bytes
 
+# DES Core Functions
+
 IP = (
     58, 50, 42, 34, 26, 18, 10, 2, 60, 52, 44, 36, 28, 20, 12, 4,
     62, 54, 46, 38, 30, 22, 14, 6, 64, 56, 48, 40, 32, 24, 16, 8,
@@ -48,7 +50,6 @@ PC_2 = (
 )
 shifts_table = (1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1)
 
-
 def bytes_to_bits(data: bytes) -> list[int]:
     bits = []
     for byte in data:
@@ -83,7 +84,6 @@ def int_to_bits(n: int, length: int) -> list[int]:
 
 def xor_bits(a: list[int], b: list[int]) -> list[int]:
     return [x ^ y for x, y in zip(a, b)]
-
 
 def permute(block: list[int], table: tuple[int]) -> list[int]:
     return [block[i - 1] for i in table]
@@ -128,7 +128,6 @@ def des_process_block(block_bits: list[int], round_keys: list[list[int]]) -> lis
 
     final_block_data = right + left
     return permute(final_block_data, IP_INV)
-
 
 def add_padding(data: bytes) -> bytes:
     block_size = 8
@@ -176,7 +175,7 @@ def des_decrypt_cbc(ciphertext: bytes, key: bytes, iv: bytes) -> bytes:
         previous_cipher_block = block_bits
     return remove_padding(plaintext)
 
-# --- Fungsi Chat dan Jaringan ---
+# Network and Chat Functions
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -195,7 +194,7 @@ def get_local_ip():
 def receive_messages(connection, key, iv):
     while True:
         try:
-            data = connection.recv(2048) # Buffer 2048 bytes
+            data = connection.recv(2048)
             if not data:
                 print("\n[Connection Lost]")
                 break
@@ -243,7 +242,6 @@ def chat_loop(connection, key, iv):
     finally:
         connection.close()
         print("[Done]")
-
 
 def start_server(port):
     HOST_IP = get_local_ip()
@@ -315,7 +313,7 @@ def start_client():
         print("\n[Connected to Host]")
 
         print("Receiving Server's Public Key...")
-        server_public_key_bytes = s.recv(2048) # Buffer untuk public key
+        server_public_key_bytes = s.recv(2048)
         server_public_key = RSA.import_key(server_public_key_bytes)
         print("Server's Public Key received.")
 
@@ -349,8 +347,7 @@ def start_client():
     finally:
         s.close()
 
-
-# --- Main Function ---
+# Main Function
 
 def main():
     clear_screen()
@@ -363,7 +360,6 @@ def main():
     choice = ""
     while choice not in ('1', '2'):
         choice = input("Option (1/2): ")
-    
 
     if choice == '1':
         port = 0
