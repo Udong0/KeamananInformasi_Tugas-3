@@ -258,7 +258,7 @@ def start_server(port):
         s.listen(1)
         
         clear_screen()
-        print("--- Hosting Mode (with RSA Key Distribution) ---")
+        print("--- Hosting Mode ---")
         print(f"Address: {HOST_IP}:{port}") 
         print("\nWaiting for connection...")
         
@@ -298,7 +298,7 @@ def start_server(port):
 
 def start_client():
     clear_screen()
-    print("--- Client Mode (with RSA Key Distribution) ---")
+    print("--- Client Mode ---")
     
     address = input("\nInput Host Address (example: 192.168.1.10:9999): ")
     
@@ -351,7 +351,7 @@ def start_client():
 
 def main():
     clear_screen()
-    print("--- DES Encrypted Chat (with RSA Key Distribution) ---")
+    print("--- DES Encrypted Chat ---")
     
     print("\nChoose Mode:")
     print("1. Host (wait for a Client)")
