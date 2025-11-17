@@ -1,8 +1,9 @@
 import os
 import socket
 import threading
-
-# Basic DES Constants
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Random import get_random_bytes
 
 IP = (
     58, 50, 42, 34, 26, 18, 10, 2, 60, 52, 44, 36, 28, 20, 12, 4,
@@ -10,20 +11,17 @@ IP = (
     57, 49, 41, 33, 25, 17, 9, 1, 59, 51, 43, 35, 27, 19, 11, 3,
     61, 53, 45, 37, 29, 21, 13, 5, 63, 55, 47, 39, 31, 23, 15, 7
 )
-
 IP_INV = (
     40, 8, 48, 16, 56, 24, 64, 32, 39, 7, 47, 15, 55, 23, 63, 31,
     38, 6, 46, 14, 54, 22, 62, 30, 37, 5, 45, 13, 53, 21, 61, 29,
     36, 4, 44, 12, 52, 20, 60, 28, 35, 3, 43, 11, 51, 19, 59, 27,
     34, 2, 42, 10, 50, 18, 58, 26, 33, 1, 41, 9, 49, 17, 57, 25
 )
-
 E = (
     32, 1, 2, 3, 4, 5, 4, 5, 6, 7, 8, 9, 8, 9, 10, 11, 12, 13,
     12, 13, 14, 15, 16, 17, 16, 17, 18, 19, 20, 21, 20, 21, 22, 23, 24, 25,
     24, 25, 26, 27, 28, 29, 28, 29, 30, 31, 32, 1
 )
-
 S_BOX = (
     ((14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7), (0, 15, 7, 4, 14, 2, 13, 1, 10, 6, 12, 11, 9, 5, 3, 8), (4, 1, 14, 8, 13, 6, 2, 11, 15, 12, 9, 7, 3, 10, 5, 0), (15, 12, 8, 2, 4, 9, 1, 7, 5, 11, 3, 14, 10, 0, 6, 13)),
     ((15, 1, 8, 14, 6, 11, 3, 4, 9, 7, 2, 13, 12, 0, 5, 10), (3, 13, 4, 7, 15, 2, 8, 14, 12, 0, 1, 10, 6, 9, 11, 5), (0, 14, 7, 11, 10, 4, 13, 1, 5, 8, 12, 6, 9, 3, 2, 15), (13, 8, 10, 1, 3, 15, 4, 2, 11, 6, 7, 12, 0, 5, 14, 9)),
@@ -34,27 +32,22 @@ S_BOX = (
     ((4, 11, 2, 14, 15, 0, 8, 13, 3, 12, 9, 7, 5, 10, 6, 1), (13, 0, 11, 7, 4, 9, 1, 10, 14, 3, 5, 12, 2, 15, 8, 6), (1, 4, 11, 13, 12, 3, 7, 14, 10, 15, 6, 8, 0, 5, 9, 2), (6, 11, 13, 8, 1, 4, 10, 7, 9, 5, 0, 15, 14, 2, 3, 12)),
     ((13, 2, 8, 4, 6, 15, 11, 1, 10, 9, 3, 14, 5, 0, 12, 7), (1, 15, 13, 8, 10, 3, 7, 4, 12, 5, 6, 11, 0, 14, 9, 2), (7, 11, 4, 1, 9, 12, 14, 2, 0, 6, 10, 13, 15, 3, 5, 8), (2, 1, 14, 7, 4, 10, 8, 13, 15, 12, 9, 0, 3, 5, 6, 11))
 )
-
 P = (
     16, 7, 20, 21, 29, 12, 28, 17, 1, 15, 23, 26, 5, 18, 31, 10,
     2, 8, 24, 14, 32, 27, 3, 9, 19, 13, 30, 6, 22, 11, 4, 25
 )
-
 PC_1 = (
     57, 49, 41, 33, 25, 17, 9, 1, 58, 50, 42, 34, 26, 18, 10, 2, 59, 51,
     43, 35, 27, 19, 11, 3, 60, 52, 44, 36, 63, 55, 47, 39, 31, 23, 15, 7,
     62, 54, 46, 38, 30, 22, 14, 6, 61, 53, 45, 37, 29, 21, 13, 5, 28, 20, 12, 4
 )
-
 PC_2 = (
     14, 17, 11, 24, 1, 5, 3, 28, 15, 6, 21, 10, 23, 19, 12, 4, 26, 8,
     16, 7, 27, 20, 13, 2, 41, 52, 31, 37, 47, 55, 30, 40, 51, 45, 33, 48,
     44, 49, 39, 56, 34, 53, 46, 42, 50, 36, 29, 32
 )
-
 shifts_table = (1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1)
 
-# Extra Functions (Bit Conversion and Operations)
 
 def bytes_to_bits(data: bytes) -> list[int]:
     bits = []
@@ -91,7 +84,6 @@ def int_to_bits(n: int, length: int) -> list[int]:
 def xor_bits(a: list[int], b: list[int]) -> list[int]:
     return [x ^ y for x, y in zip(a, b)]
 
-# DES Core Implementation
 
 def permute(block: list[int], table: tuple[int]) -> list[int]:
     return [block[i - 1] for i in table]
@@ -137,7 +129,6 @@ def des_process_block(block_bits: list[int], round_keys: list[list[int]]) -> lis
     final_block_data = right + left
     return permute(final_block_data, IP_INV)
 
-# CBC and Padding
 
 def add_padding(data: bytes) -> bytes:
     block_size = 8
@@ -185,7 +176,7 @@ def des_decrypt_cbc(ciphertext: bytes, key: bytes, iv: bytes) -> bytes:
         previous_cipher_block = block_bits
     return remove_padding(plaintext)
 
-# Chat and Network Functions
+# --- Fungsi Chat dan Jaringan ---
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -253,8 +244,18 @@ def chat_loop(connection, key, iv):
         connection.close()
         print("[Done]")
 
-def start_server(key_bytes, iv_bytes, port):
+# --- Main Function ---
+
+def start_server(port):
     HOST_IP = get_local_ip()
+    
+    # --- BARU: Buat Kunci RSA ---
+    print("Generating RSA key pair (2048 bits)...")
+    rsa_key = RSA.generate(2048)
+    private_key = rsa_key
+    public_key = rsa_key.publickey()
+    print("RSA key pair generated.")
+    # --------------------------
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -262,13 +263,37 @@ def start_server(key_bytes, iv_bytes, port):
         s.listen(1)
         
         clear_screen()
-        print("--- Hosting Mode ---")
-        print(f"Key: {key_bytes.decode('latin-1')} | IV: {iv_bytes.decode('latin-1')}")
+        print("--- Hosting Mode (with RSA Key Distribution) ---")
         print(f"Address: {HOST_IP}:{port}") 
         print("\nWaiting for connection...")
         
         conn, addr = s.accept()
         print(f"\n[Connected to {addr}]")
+
+        # --- BARU: Kirim Kunci Publik & Terima Secret Key ---
+        print("Sending Public Key to Client...")
+        conn.sendall(public_key.export_key())
+        
+        print("Waiting for Encrypted Secret Key (DES Key + IV) from Client...")
+        # Ukuran buffer harus cukup untuk ciphertext RSA (2048 bit key = 256 bytes)
+        encrypted_secret = conn.recv(256) 
+        
+        print(f"Received Encrypted Package (Hex): {encrypted_secret.hex()}")
+
+        # Dekripsi secret key menggunakan kunci privat
+        cipher_rsa = PKCS1_OAEP.new(private_key)
+        secret = cipher_rsa.decrypt(encrypted_secret)
+        
+        # Pisahkan key dan IV (8 bytes pertama adalah key, 8 bytes berikutnya IV)
+        key_bytes = secret[:8]
+        iv_bytes = secret[8:]
+        
+        print("Secret Key decrypted and received successfully.")
+        print(f"   DES Key: {key_bytes.decode('latin-1')}")
+        print(f"   DES IV : {iv_bytes.decode('latin-1')}")
+        # --------------------------------------------------
+
+        print("\nStarting Encrypted Chat...")
         print("Type 'exit' to leave the chat.\n")
         
         chat_loop(conn, key_bytes, iv_bytes)
@@ -281,10 +306,10 @@ def start_server(key_bytes, iv_bytes, port):
     finally:
         s.close()
 
-def start_client(key_bytes, iv_bytes):
+def start_client():
     clear_screen()
-    print("--- Client Mode ---")
-    print(f"Key: {key_bytes.decode('latin-1')} | IV: {iv_bytes.decode('latin-1')}")
+    print("--- Client Mode (with RSA Key Distribution) ---")
+    
     address = input("\nInput Host Address (example: 192.168.1.10:9999): ")
     
     try:
@@ -296,6 +321,34 @@ def start_client(key_bytes, iv_bytes):
         s.connect((host, port))
         
         print("\n[Connected to Host]")
+
+        # --- BARU: Terima Kunci Publik & Buat/Kirim Secret Key ---
+        print("Receiving Server's Public Key...")
+        server_public_key_bytes = s.recv(2048) # Buffer untuk public key
+        server_public_key = RSA.import_key(server_public_key_bytes)
+        print("Server's Public Key received.")
+
+        # Buat DES key dan IV secara acak
+        print("Generating random DES Key (8 bytes) and IV (8 bytes)...")
+        key_bytes = get_random_bytes(8)
+        iv_bytes = get_random_bytes(8)
+        
+        # Gabungkan key dan IV untuk dikirim dalam satu paket
+        secret = key_bytes + iv_bytes
+        
+        print(f"   Generated DES Key: {key_bytes.decode('latin-1')}")
+        print(f"   Generated DES IV : {iv_bytes.decode('latin-1')}")
+
+        # Enkripsi secret key (Key + IV) menggunakan kunci publik server
+        cipher_rsa = PKCS1_OAEP.new(server_public_key)
+        encrypted_secret = cipher_rsa.encrypt(secret)
+        
+        print(f"Sending Encrypted Package (Hex): {encrypted_secret.hex()}")
+        s.sendall(encrypted_secret)
+        print("Encrypted Secret Key sent.")
+        # ---------------------------------------------------------
+        
+        print("\nStarting Encrypted Chat...")
         print("Type 'exit' to leave the chat.\n")
         
         chat_loop(s, key_bytes, iv_bytes)
@@ -310,11 +363,11 @@ def start_client(key_bytes, iv_bytes):
         s.close()
 
 
-# Main Function
+# --- Main Function (DIMODIFIKASI) ---
 
 def main():
     clear_screen()
-    print("--- DES Encrypted Chat ---")
+    print("--- DES Encrypted Chat (with RSA Key Distribution) ---")
     
     print("\nChoose Mode:")
     print("1. Host (wait for a Client)")
@@ -324,25 +377,7 @@ def main():
     while choice not in ('1', '2'):
         choice = input("Option (1/2): ")
     
-    clear_screen()
-    role_str = "Host" if choice == '1' else "Client"
-    print(f"--- Mode: {role_str} ---")
-    print("Ensure the Key and IV are the SAME on both devices.\n")
-
-    key_str = ""
-    iv_str = ""
-    while len(key_str) != 8:
-        key_str = input("Input Key (8 characters): ")
-        if len(key_str) != 8:
-            print("Error: Invalid key length.")
-    
-    while len(iv_str) != 8:
-        iv_str = input("Input IV (8 characters): ")
-        if len(iv_str) != 8:
-            print("Error: Invalid IV length.")
-
-    key_bytes = key_str.encode('latin-1')
-    iv_bytes = iv_str.encode('latin-1')
+    # --- Input Key/IV DIHAPUS ---
 
     if choice == '1':
         port = 0
@@ -356,11 +391,13 @@ def main():
                     break
             except ValueError:
                 print("Error: Invalid PORT number.")
-
-        start_server(key_bytes, iv_bytes, port)
+        
+        # Panggil start_server tanpa key/iv
+        start_server(port)
         
     elif choice == '2':
-        start_client(key_bytes, iv_bytes)
+        # Panggil start_client tanpa key/iv
+        start_client()
 
 if __name__ == "__main__":
     main()
